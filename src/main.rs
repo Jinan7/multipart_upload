@@ -190,6 +190,8 @@ mod test {
 
     use std::path::Path;
 
+use aws_sdk_s3::primitives::{ByteStream, Length};
+
 use crate::{CHUNK_SIZE, create_file};
 
 
@@ -198,13 +200,40 @@ use crate::{CHUNK_SIZE, create_file};
 
         let key = "testfile.txt";
         let file = create_file(key).expect("error creating file");
-        let path = Path::new(&key);
+        let path = Path::new(key);
         let file_size = tokio::fs::metadata(path)
             .await
             .unwrap()
             .len();
         dbg!(file_size);
         assert!(file.metadata().unwrap().len() > CHUNK_SIZE * 4);
+    }
+
+    #[tokio::test]
+    async fn what_happens_when_file_is_overwriten_during_upload() {
+
+        let key = "testfile.txt";
+        let file = create_file(key).expect("error creating file");
+        let _ = dbg!(file.metadata().unwrap().created());
+        let path = Path::new(key);
+        ByteStream::read_from()
+            .path(path)
+            .length(Length::Exact(CHUNK_SIZE))
+            .build()
+            .await
+            .unwrap();
+
+        // let _  = create_file(key).expect("error creating file");
+        let _ = dbg!(file.metadata().unwrap().modified());
+        ByteStream::read_from()
+            .path(path)
+            .offset(CHUNK_SIZE)
+            .length(Length::Exact(CHUNK_SIZE))
+            .build()
+            .await
+            .unwrap();
+
+
     }
 }
 
