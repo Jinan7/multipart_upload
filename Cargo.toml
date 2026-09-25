@@ -7,4 +7,5 @@ edition = "2024"
 anyhow = "1.0.104"
 aws-config = { version = "1.12.0", features = ["credentials-login"] }
 aws-sdk-s3 = "1.149.0"
+rand = "0.10.3"
 tokio = { version = "1.53.1", features = ["full"] }
