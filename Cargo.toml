@@ -1,0 +1,10 @@
+[package]
+name = "multipart_upload"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+aws-config = { version = "1.12.0", features = ["credentials-login"] }
+aws-sdk-s3 = "1.149.0"
+tokio = { version = "1.53.1", features = ["full"] }
