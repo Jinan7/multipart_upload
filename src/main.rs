@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::Path};
 
 use anyhow::Context;
-use aws_config::{BehaviorVersion, SdkConfig};
+use aws_config::{BehaviorVersion, SdkConfig, retry::RetryConfig};
 use aws_sdk_s3::{operation::{complete_multipart_upload::{CompleteMultipartUploadOutput}, create_multipart_upload::CreateMultipartUploadOutput, upload_part::UploadPartOutput}, primitives::{ByteStream, Length}, types::{CompletedMultipartUpload, CompletedPart}};
 use rand::{RngExt, distr::Alphanumeric};
 const CHUNK_SIZE: u64 = 1024 * 1024 * 5;
@@ -17,7 +17,9 @@ async fn start_multipart_upload() -> Result<(), anyhow::Error> {
 
     let bucket_name = "ub-s3-j1-iam";
     let key = "new_text_file.txt";
+    
     let config = get_config().await?;
+    
     let client = aws_sdk_s3::Client::new(&config);
     
     let multipartupload_res = create_multipart_upload(&client, bucket_name, key).await?;
@@ -31,7 +33,11 @@ async fn start_multipart_upload() -> Result<(), anyhow::Error> {
 }
 
 async fn get_config() -> Result<SdkConfig, anyhow::Error> {
-    let config = aws_config::load_defaults(BehaviorVersion::latest())
+    let retry_config = RetryConfig::standard()
+        .with_max_attempts(10);
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .retry_config(retry_config)
+        .load()
         .await;
 
     Ok(config)
