@@ -22,6 +22,7 @@ async fn start_multipart_upload() -> Result<(), anyhow::Error> {
     
     let multipartupload_res = create_multipart_upload(&client, bucket_name, key).await?;
     let upload_id = multipartupload_res.upload_id().ok_or(anyhow::anyhow!("No upload ID"))?;
+    println!("{upload_id}");
     let _file = create_file(key)?;
     upload_parts(key, &client, bucket_name, key, upload_id).await?;
 
@@ -110,8 +111,8 @@ async fn upload_part(
     part_number: i32,
     body: ByteStream
 ) -> Result<UploadPartOutput, anyhow::Error> {
-
-    Ok(client
+    println!("Uploading Part: {}", part_number);
+    let result = client
         .upload_part()
         .key(key)
         .bucket(bucket_name)
@@ -120,8 +121,9 @@ async fn upload_part(
         .part_number(part_number)
         .send()
         .await
-        .context(format!("Error uploading part {}", part_number))?)
-
+        .context(format!("Error uploading part {}", part_number))?;
+    println!("Completed Part Upload: {}", part_number);
+    Ok(result)
 }
 
 async fn create_multipart_upload(
