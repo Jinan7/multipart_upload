@@ -1639,7 +1639,10 @@ dependencies = [
  "aws-sdk-s3",
  "rand 0.10.3",
  "tokio",
+ "uuid",
  "watchexec",
+ "watchexec-events",
+ "watchexec-signals",
 ]
 
 [[package]]
