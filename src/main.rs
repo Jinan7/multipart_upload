@@ -1,11 +1,11 @@
 use std::{fs::File, io::Write, path::Path, sync::{Arc, Mutex}};
 use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig, retry::RetryConfig};
-use aws_sdk_s3::{operation::{complete_multipart_upload::CompleteMultipartUploadOutput, create_multipart_upload::CreateMultipartUploadOutput, upload_part::UploadPartOutput}, primitives::{ByteStream, Length, event_stream::HeaderValue::Uuid}, types::{CompletedMultipartUpload, CompletedPart}};
+use aws_sdk_s3::{operation::{complete_multipart_upload::CompleteMultipartUploadOutput, create_multipart_upload::CreateMultipartUploadOutput, upload_part::UploadPartOutput}, primitives::{ByteStream, Length}, types::{CompletedMultipartUpload, CompletedPart}};
 use rand::{RngExt, distr::Alphanumeric};
 use watchexec::{Watchexec, error::CriticalError};
-use watchexec_events::{Event, Tag::FileEventKind, filekind::FileEventKind::{Modify, Remove}};
-use watchexec_signals::Signal;
+use watchexec_events::{Event, Tag::{self, FileEventKind, ProcessCompletion}, filekind::FileEventKind::{Modify, Remove}};
+use watchexec_signals::Signal::{self, Terminate};
 const CHUNK_SIZE: u64 = 1024 * 1024 * 5;
 const MAX_CHUNKS: u64 = 10_000;
 #[tokio::main]
@@ -111,7 +111,8 @@ async fn upload_parts(
         if *modified.lock().unwrap() == true {
             //abort upload
             abort_multipart_upload(client, bucket_name, upload_id, key).await?;          
-            // close_file_watcher(wx, handle).await?;           
+            
+            close_file_watcher(wx, handle).await?;
             //early return an error
             return Err(anyhow::anyhow!("Error reading file"));
         }
@@ -122,23 +123,11 @@ async fn upload_parts(
         .build();
 
     complete_multipart_upload(client, bucket_name, key, upload_id, completed_multipart_upload).await?;
-    // close_file_watcher(wx, handle).await?;
-    
+    close_file_watcher(wx, handle).await?;
     Ok(())
 }
 
-async fn close_file_watcher(
-    watcher: Arc<Watchexec>,
-    handle: tokio::task::JoinHandle<Result<(), CriticalError>>
-) -> Result<(), anyhow::Error>{
 
-    
-    //send terminate event to file watcher
-    watcher.send_event(Event::default(), watchexec_events::Priority::Urgent).await?;
-    //block on file watcher to finish thread
-    handle.await??;
-    Ok(())
-}
 async fn upload_part(
     client: &aws_sdk_s3::Client,
     bucket_name: &str,
@@ -239,13 +228,29 @@ fn create_file(
     Ok(file)
 }
 
+async fn close_file_watcher(
+    watcher: Arc<Watchexec>,
+    handler: tokio::task::JoinHandle<Result<(), CriticalError>>
+) -> Result<(), anyhow::Error> {
+
+    let shutdown_event = Event {
+        tags: vec![watchexec_events::Tag::Signal(Terminate)],
+        metadata: Default::default(),
+    };
+
+    watcher.send_event(shutdown_event, watchexec_events::Priority::Urgent).await?;
+    handler.await??;
+    Ok(())
+}
+
 async fn get_file_watcher(
     file_path: &Path,
-    modified: Arc<Mutex<bool>>
+    modified: Arc<Mutex<bool>>,
 ) -> Result<Arc<Watchexec>, anyhow::Error> {
 
     let wx = Watchexec::new(move |mut action| {
 
+        
         for event in action.events.iter() {
 
             for tag in event.tags.iter() {
@@ -258,6 +263,7 @@ async fn get_file_watcher(
                         _ => ()
                     }
                 }
+
             }
         }
 
@@ -265,6 +271,7 @@ async fn get_file_watcher(
             println!("Quitting file watcher");
             action.quit()
         }
+
 
         action
 
@@ -281,7 +288,6 @@ mod test {
 
     use std::path::Path;
 
-use aws_sdk_s3::primitives::{ByteStream, Length};
 
 use crate::{CHUNK_SIZE, create_file};
 
@@ -300,12 +306,6 @@ use crate::{CHUNK_SIZE, create_file};
         assert!(file.metadata().unwrap().len() > CHUNK_SIZE * 4);
     }
 
-    #[tokio::test]
-    async fn modifying_file_aborts_upload () {
-
-        
-
-
-    }
+    
 }
 
