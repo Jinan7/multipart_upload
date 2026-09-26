@@ -111,7 +111,7 @@ async fn upload_parts(
         if *modified.lock().unwrap() == true {
             //abort upload
             abort_multipart_upload(client, bucket_name, upload_id, key).await?;          
-            close_file_watcher(wx, handle).await?;           
+            // close_file_watcher(wx, handle).await?;           
             //early return an error
             return Err(anyhow::anyhow!("Error reading file"));
         }
@@ -122,7 +122,7 @@ async fn upload_parts(
         .build();
 
     complete_multipart_upload(client, bucket_name, key, upload_id, completed_multipart_upload).await?;
-    close_file_watcher(wx, handle).await?;
+    // close_file_watcher(wx, handle).await?;
     
     Ok(())
 }
@@ -132,10 +132,11 @@ async fn close_file_watcher(
     handle: tokio::task::JoinHandle<Result<(), CriticalError>>
 ) -> Result<(), anyhow::Error>{
 
+    
     //send terminate event to file watcher
     watcher.send_event(Event::default(), watchexec_events::Priority::Urgent).await?;
     //block on file watcher to finish thread
-    handle.await?;
+    handle.await??;
     Ok(())
 }
 async fn upload_part(
@@ -186,7 +187,7 @@ async fn abort_multipart_upload(
     key: &str
 ) -> Result<(), anyhow::Error> {
 
-    let res = client
+    client
         .abort_multipart_upload()
         .bucket(bucket)
         .upload_id(upload_id)
@@ -261,6 +262,7 @@ async fn get_file_watcher(
         }
 
         if action.signals().any(|sig|{ matches!(sig, Signal::Interrupt | Signal::Terminate)}) {
+            println!("Quitting file watcher");
             action.quit()
         }
 
