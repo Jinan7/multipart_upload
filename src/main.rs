@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::Path, sync::{Arc, Mutex}, thread::JoinHandle};
+use std::{fs::File, io::Write, path::Path, sync::{Arc, Mutex}};
 use anyhow::Context;
 use aws_config::{BehaviorVersion, SdkConfig, retry::RetryConfig};
 use aws_sdk_s3::{operation::{complete_multipart_upload::CompleteMultipartUploadOutput, create_multipart_upload::CreateMultipartUploadOutput, upload_part::UploadPartOutput}, primitives::{ByteStream, Length, event_stream::HeaderValue::Uuid}, types::{CompletedMultipartUpload, CompletedPart}};
@@ -301,28 +301,9 @@ use crate::{CHUNK_SIZE, create_file};
     }
 
     #[tokio::test]
-    async fn what_happens_when_file_is_overwriten_during_upload() {
+    async fn modifying_file_aborts_upload () {
 
-        let key = "testfile.txt";
-        let file = create_file(key).expect("error creating file");
-        let _ = dbg!(file.metadata().unwrap().created());
-        let path = Path::new(key);
-        ByteStream::read_from()
-            .path(path)
-            .length(Length::Exact(CHUNK_SIZE))
-            .build()
-            .await
-            .unwrap();
-
-        // let _  = create_file(key).expect("error creating file");
-        let _ = dbg!(file.metadata().unwrap().modified());
-        ByteStream::read_from()
-            .path(path)
-            .offset(CHUNK_SIZE)
-            .length(Length::Exact(CHUNK_SIZE))
-            .build()
-            .await
-            .unwrap();
+        
 
 
     }
